@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f3;
+    --bg3: #eeece8;
+    --text: #1a1a18;
+    --text2: #6b6a65;
+    --text3: #9b9a95;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --amber: #BA7517;
+    --amber-bg: #FAEEDA;
+    --amber-text: #633806;
+    --red: #A32D2D;
+    --red-bg: #FCEBEB;
+    --red-text: #791F1F;
+    --green: #3B6D11;
+    --green-bg: #EAF3DE;
+    --blue: #185FA5;
+    --blue-bg: #E6F1FB;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg2: #242422;
+      --bg3: #2c2c2a;
+      --text: #e8e6e0;
+      --text2: #9b9a95;
+      --text3: #6b6a65;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.18);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; }
+  .app { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .header h1 { font-size: 20px; font-weight: 500; }
+  .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .nav button { font-size: 13px; padding: 6px 14px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .nav button:hover { background: var(--bg2); }
+  .nav button.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 7px 14px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+  .btn:hover { background: var(--bg2); }
+  .btn.edit-on { background: var(--amber-bg); color: var(--amber-text); border-color: #EF9F27; }
+  .edit-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+  @media(max-width:640px){ .grid4{grid-template-columns:repeat(2,1fr);} .grid3{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:400px){ .grid4,.grid2,.grid3{grid-template-columns:1fr;} }
+  .metric { background: var(--bg2); border-radius: var(--radius); padding: 14px 16px; }
+  .metric .mlabel { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .metric .mvalue { font-size: 26px; font-weight: 500; line-height: 1; }
+  .metric .msub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .metric .msub.up { color: #3a7d44; }
+  .metric .msub.down { color: var(--red); }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 14px; }
+  .card-title { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 14px; }
+  .date-range-label { font-size: 12px; color: var(--text2); margin-bottom: 16px; }
+  .date-range-label strong { color: var(--text); font-weight: 500; }
+  .edit-banner { display: none; background: var(--amber-bg); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: var(--amber-text); align-items: center; gap: 8px; }
+  .edit-banner.show { display: flex; }
+  .edit-banner button { margin-left: auto; font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid #BA7517; background: transparent; color: var(--amber-text); cursor: pointer; font-family: inherit; }
+  /* Date picker */
+  .picker-panel { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; display: none; }
+  .picker-panel.open { display: block; }
+  .preset-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .preset-item { font-size: 14px; padding: 11px 16px; color: var(--text); cursor: pointer; border-bottom: 0.5px solid var(--border); transition: background .1s; }
+  .preset-item:hover { background: var(--bg2); }
+  .preset-item.selected { background: #BA7517; color: #fff; font-weight: 500; }
+  .preset-item:nth-child(odd) { border-right: 0.5px solid var(--border); }
+  .preset-item:nth-last-child(1),.preset-item:nth-last-child(2){ border-bottom: none; }
+  .custom-range { padding: 14px 16px; border-top: 0.5px solid var(--border); background: var(--bg2); }
+  .custom-range label { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 8px; }
+  .custom-inputs { display: flex; align-items: center; gap: 10px; }
+  .custom-inputs input[type=date] { flex: 1; font-size: 13px; padding: 7px 10px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); font-family: inherit; min-width: 0; }
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; color: var(--text2); font-weight: 500; padding: 6px 10px; border-bottom: 0.5px solid var(--border); text-transform: uppercase; letter-spacing: .04em; }
+  td { padding: 9px 10px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  td input.cell-input { font-size: 13px; color: var(--text); background: var(--bg); border: 1px solid #EF9F27; border-radius: 4px; padding: 2px 6px; width: 100%; outline: none; font-family: inherit; }
+  select.status-select { font-size: 11px; padding: 2px 6px; border-radius: 20px; border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); cursor: pointer; font-family: inherit; }
+  /* Pills */
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+  .pill-green { background: var(--green-bg); color: var(--green); }
+  .pill-red { background: var(--red-bg); color: var(--red); }
+  .pill-amber { background: var(--amber-bg); color: var(--amber); }
+  .pill-blue { background: var(--blue-bg); color: var(--blue); }
+  /* Call reviews */
+  .call-list { display: flex; flex-direction: column; gap: 8px; }
+  .call-row { border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .call-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; transition: background .12s; }
+  .call-header:hover { background: var(--bg2); }
+  .call-header.open-hdr { border-radius: var(--radius) var(--radius) 0 0; }
+  .call-name { font-size: 14px; font-weight: 500; }
+  .call-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .call-score { font-size: 18px; font-weight: 500; }
+  .score-a { color: #3a7d44; }
+  .score-b { color: var(--amber); }
+  .score-c { color: var(--red); }
+  .call-detail { display: none; border-top: 0.5px solid var(--border); padding: 16px 14px; background: var(--bg); }
+  .call-detail.open { display: block; }
+  .dl { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin: 14px 0 7px; }
+  .dl:first-child { margin-top: 0; }
+  .bar-wrap { margin-bottom: 8px; }
+  .bar-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 12px; }
+  .bar-track { height: 7px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .tag { display: inline-block; font-size: 11px; padding: 3px 9px; border-radius: 20px; margin: 0 4px 4px 0; }
+  .tag-coaching { background: var(--amber-bg); color: #854F0B; }
+  .tag-good { background: var(--green-bg); color: var(--green); }
+  .obj-box { background: var(--red-bg); border-radius: var(--radius); padding: 12px 14px; }
+  .obj-label { font-size: 11px; font-weight: 500; color: var(--red); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .obj-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .obj-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 4px 10px; border-radius: 20px; background: #F7C1C1; color: var(--red-text); }
+  .handled { font-size: 10px; padding: 1px 6px; border-radius: 20px; margin-left: 2px; }
+  .handled.yes { background: var(--green-bg); color: var(--green); }
+  .handled.no { background: var(--amber-bg); color: #854F0B; }
+  /* Edit mode — objections */
+  .obj-edit-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .obj-edit-input { font-size: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid #F09595; background: var(--bg); color: var(--text); outline: none; flex: 1; min-width: 120px; font-family: inherit; }
+  .obj-handled-sel { font-size: 11px; padding: 3px 6px; border-radius: 20px; border: 1px solid #F09595; background: var(--bg); color: var(--text); cursor: pointer; font-family: inherit; }
+  .obj-remove { font-size: 14px; color: var(--red); background: none; border: none; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+  .obj-add { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1px dashed #F09595; background: transparent; color: var(--red); cursor: pointer; margin-top: 4px; font-family: inherit; }
+  .call-edit-sec { margin-top: 14px; padding-top: 14px; border-top: 0.5px solid var(--border); }
+  .ce-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .ce-label { font-size: 12px; color: var(--text2); min-width: 60px; }
+  .ce-input { font-size: 13px; padding: 4px 8px; border-radius: 5px; border: 1px solid #EF9F27; background: var(--bg); color: var(--text); outline: none; font-family: inherit; }
+  /* Trends */
+  .focus-box { background: var(--amber-bg); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .focus-label { font-size: 11px; font-weight: 500; color: #854F0B; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .focus-text { font-size: 14px; color: var(--amber-text); font-weight: 500; outline: none; }
+  .focus-sub { font-size: 12px; color: #854F0B; margin-top: 4px; outline: none; }
+  .score-stepper { display: none; align-items: center; gap: 4px; }
+  .score-stepper.on { display: flex; }
+  .score-stepper button { width: 20px; height: 20px; border-radius: 4px; border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; font-family: inherit; }
+  .score-stepper input { width: 44px; font-size: 13px; font-weight: 500; text-align: center; border: 1px solid #EF9F27; border-radius: 4px; padding: 1px 4px; background: var(--bg); color: var(--text); outline: none; font-family: inherit; }
+  /* Missed opportunities */
+  .total-leakage { background: var(--red-bg); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .tl-label { font-size: 13px; color: var(--red); font-weight: 500; }
+  .tl-sub { font-size: 12px; color: var(--red-text); margin-top: 2px; }
+  .tl-value { font-size: 28px; font-weight: 500; color: var(--red); }
+  .mo-row { border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
+  .mo-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; cursor: pointer; transition: background .12s; flex-wrap: wrap; gap: 8px; }
+  .mo-header:hover { background: var(--bg2); }
+  .mo-name { font-size: 14px; font-weight: 500; }
+  .mo-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .mo-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .signal-pill { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--amber-bg); color: #854F0B; }
+  .signal-pill.high { background: var(--red-bg); color: var(--red); }
+  .breakdown-stage-pill { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--red-bg); color: var(--red); }
+  .rev-badge { font-size: 13px; font-weight: 500; color: var(--red); }
+  .rev-badge.empty { color: var(--text2); font-weight: 400; font-size: 12px; }
+  .mo-detail { display: none; border-top: 0.5px solid var(--border); padding: 14px; }
+  .mo-detail.open { display: block; }
+  .bs-wrap { display: flex; align-items: center; gap: 10px; }
+  .bs-track { flex: 1; height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+  .bs-fill { height: 100%; border-radius: 4px; background: #E24B4A; }
+  .bs-num { font-size: 13px; font-weight: 500; color: var(--red); min-width: 40px; text-align: right; }
+  .signal-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .signal-tag { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: var(--amber-bg); color: #854F0B; }
+  .signal-tag.strong { background: var(--red-bg); color: var(--red); }
+  .stage-badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--red-bg); color: var(--red); }
+  .diagnosis-box { background: var(--red-bg); border-radius: var(--radius); padding: 12px 14px; }
+  .diagnosis-text { font-size: 13px; color: var(--red-text); line-height: 1.6; }
+  .should-have-box { background: var(--green-bg); border-radius: var(--radius); padding: 10px 14px; }
+  .should-have-text { font-size: 13px; color: #27500A; line-height: 1.5; }
+  .rev-section { background: var(--bg2); border-radius: var(--radius); padding: 14px 16px; }
+  .rev-input-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+  .rev-prefix { font-size: 18px; font-weight: 500; color: var(--text2); }
+  .rev-input { font-size: 20px; font-weight: 500; color: var(--red); background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius); padding: 6px 12px; width: 160px; outline: none; font-family: inherit; }
+  .rev-input:focus { border-color: #E24B4A; }
+  .rev-save { font-size: 13px; padding: 7px 16px; border-radius: var(--radius); border: 0.5px solid #E24B4A; background: transparent; color: var(--red); cursor: pointer; font-family: inherit; }
+  .rev-save:hover { background: var(--red-bg); }
+  .rev-saved { font-size: 12px; color: var(--green); display: none; margin-left: 4px; }
+  .rev-saved.show { display: inline; }
+  .unhandled-pill { font-size: 11px; background: var(--red-bg); color: var(--red); padding: 2px 8px; border-radius: 20px; }
+  .summary-text { font-size: 13px; color: var(--text2); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Sales dashboard</h1>
+    <div class="header-right">
+      <button class="btn" id="editToggle" onclick="toggleEdit()">
+        <span class="edit-dot"></span>
+        <span id="editLabel">Edit data</span>
+      </button>
+      <button class="btn" onclick="togglePicker()">
+        <svg viewBox="0 0 14 14" fill="none" style="width:14px;height:14px;flex-shrink:0"><rect x="1" y="2" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M1 5.5h12" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 1v2M9.5 1v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span id="dateLabel">This month</span>
+        <span style="font-size:10px;color:var(--text2)">▾</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="active" onclick="switchTab('tracking',this)">Data tracking</button>
+    <button onclick="switchTab('calls',this)">Call reviews</button>
+    <button onclick="switchTab('trends',this)">Weekly trends</button>
+    <button onclick="switchTab('missed',this)">Missed opportunities</button>
+  </div>
+
+  <div class="picker-panel" id="pickerPanel">
+    <div class="preset-grid" id="presetGrid"></div>
+    <div class="custom-range">
+      <label>Custom range</label>
+      <div class="custom-inputs">
+        <input type="date" id="dateFrom" onchange="applyCustom()"/>
+        <span style="font-size:13px;color:var(--text2);flex-shrink:0">to</span>
+        <input type="date" id="dateTo" onchange="applyCustom()"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="date-range-label" id="activeRangeLabel"></div>
+  <div class="edit-banner" id="editBanner">
+    <span>Edit mode on — adjust pipeline rows, call details, objections and framework scores.</span>
+    <button onclick="resetAll()">Reset to pulled data</button>
+  </div>
+
+  <!-- DATA TRACKING -->
+  <div id="tracking" class="section active">
+    <div class="grid4">
+      <div class="metric"><div class="mlabel">Call to close</div><div class="mvalue">28%</div><div class="msub up">+3% vs prev period</div></div>
+      <div class="metric"><div class="mlabel">Qualified close</div><div class="mvalue">41%</div><div class="msub up">+6% vs prev period</div></div>
+      <div class="metric"><div class="mlabel">Cancellations</div><div class="mvalue">7</div><div class="msub down">+2 vs prev period</div></div>
+      <div class="metric"><div class="mlabel">No shows</div><div class="mvalue">4</div><div class="msub">Same as prev period</div></div>
+    </div>
+    <div class="grid2">
+      <div class="metric"><div class="mlabel">Revenue generated</div><div class="mvalue">$62,400</div><div class="msub up">+$8,200 vs prev period</div></div>
+      <div class="metric"><div class="mlabel">Cash collected</div><div class="mvalue">$38,900</div><div class="msub up">+$4,100 vs prev period</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pipeline</div>
+      <div class="table-wrap"><table><thead><tr><th>Lead</th><th>Status</th><th>Value</th><th>Next step</th></tr></thead><tbody id="pipelineTable"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Revenue vs cash collected — last 8 weeks</div>
+      <div style="position:relative;width:100%;height:220px"><canvas id="revenueChart" role="img" aria-label="Revenue and cash collected trend"></canvas></div>
+      <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text2)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#185FA5;display:inline-block"></span>Revenue</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#3a7d44;display:inline-block"></span>Cash collected</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALL REVIEWS -->
+  <div id="calls" class="section">
+    <div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">Recent calls</div>
+    <div class="call-list" id="callList"></div>
+  </div>
+
+  <!-- WEEKLY TRENDS -->
+  <div id="trends" class="section">
+    <div class="focus-box">
+      <div class="focus-label">Biggest thing to work on</div>
+      <div class="focus-text" id="focusText" contenteditable="false">Ownership &amp; cost of inaction</div>
+      <div class="focus-sub" id="focusSub" contenteditable="false">Avg score 54/100 across 5 calls — prospects aren't feeling urgency before the pitch.</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Framework scores — 4-week avg</div>
+        <div id="trendBars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Close rate trend</div>
+        <div style="position:relative;width:100%;height:220px"><canvas id="closeChart" role="img" aria-label="Close rate trend"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MISSED OPPORTUNITIES -->
+  <div id="missed" class="section">
+    <div class="total-leakage">
+      <div>
+        <div class="tl-label">Total revenue leakage this month</div>
+        <div class="tl-sub" id="leakageSub">enter deal values below to track leakage</div>
+      </div>
+      <div class="tl-value" id="totalLeakage">$0</div>
+    </div>
+    <div class="grid3">
+      <div class="metric"><div class="mlabel">Missed opportunities</div><div class="mvalue">5</div><div class="msub">high buying signal, not closed</div></div>
+      <div class="metric"><div class="mlabel">Avg buying signal</div><div class="mvalue">81/100</div><div class="msub">across all missed calls</div></div>
+      <div class="metric"><div class="mlabel">Top breakdown stage</div><div class="mvalue" style="font-size:16px">Objection handling</div><div class="msub">most common failure point</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Missed opportunities — reviewed by Claude AI</div>
+      <div id="moList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────
+let editMode = false, openCallIdx = null, openMoIdx = null;
+let selectedPreset = 'this_month', pickerOpen = false;
+
+const PRESETS = [
+  {label:'Today',key:'today'},{label:'Yesterday',key:'yesterday'},
+  {label:'Tomorrow',key:'tomorrow'},{label:'This week',key:'this_week'},
+  {label:'Last week',key:'last_week'},{label:'Next week',key:'next_week'},
+  {label:'This month',key:'this_month'},{label:'Last month',key:'last_month'},
+  {label:'Next month',key:'next_month'},{label:'This quarter',key:'this_quarter'},
+  {label:'Last quarter',key:'last_quarter'},{label:'Next quarter',key:'next_quarter'},
+  {label:'This year',key:'this_year'},{label:'Last year',key:'last_year'},
+  {label:'Next year',key:'next_year'},{label:'All time',key:'all_time'},
+];
+
+const statusOptions = ['Closed won','Closed lost','Proposal sent','Discovery','No show','Cancelled'];
+const pillMap = {'Closed won':'pill-green','Closed lost':'pill-red','Proposal sent':'pill-amber','Discovery':'pill-blue','No show':'pill-red','Cancelled':'pill-red'};
+const FRAMEWORK_LABELS = ['Intro & rapport','Problem awareness','Situation / pain','Ownership & COI','Goal state','Pitch','Price drop','Objection handling'];
+
+let pipeline = [
+  {name:'Jordan Mills',status:'Closed won',pill:'pill-green',value:'$8,400',next:'Onboarding'},
+  {name:'Sarah Chen',status:'Proposal sent',pill:'pill-amber',value:'$12,000',next:'Follow-up Fri'},
+  {name:'Marcus Webb',status:'Discovery',pill:'pill-blue',value:'$6,500',next:'Call tomorrow'},
+  {name:'Priya Nair',status:'No show',pill:'pill-red',value:'$9,200',next:'Re-schedule'},
+  {name:'Tom Bradley',status:'Closed won',pill:'pill-green',value:'$7,100',next:'Contract sent'},
+  {name:'Alicia Park',status:'Cancelled',pill:'pill-red',value:'$5,800',next:'Re-engage'},
+];
+
+let calls = [
+  {name:'Jordan Mills',meta:'Apr 11 · 52 min · Closed won',score:87,scores:[90,85,88,72,86,90,85,82],
+   summary:'Strong intro and rapport, clear pain identification. Pitch was well-timed. Objection handling showed confidence.',
+   coachingTags:['strong rapport','clear pain dig','flawless pitch'],
+   objections:[{text:'Price is too high',handled:'yes'},{text:'Need to think about it',handled:'yes'},{text:'Already have a solution',handled:'yes'}]},
+  {name:'Sarah Chen',meta:'Apr 10 · 38 min · Proposal stage',score:71,scores:[80,75,70,58,72,78,68,65],
+   summary:'Good rapport but situation/pain exploration was surface-level. Goal state was strong. Ownership left on the table.',
+   coachingTags:['shallow pain dig','good goal state','follow-up needed'],
+   objections:[{text:'Need to check with my manager',handled:'no'},{text:'Budget is tight right now',handled:'no'}]},
+  {name:'Marcus Webb',meta:'Apr 9 · 44 min · Discovery',score:64,scores:[70,65,60,50,68,72,55,60],
+   summary:'Discovery went long without clear direction. Pain was not magnified. Pitch arrived before full buy-in.',
+   coachingTags:['pitch too early','pain not magnified','discovery too long'],
+   objections:[{text:"We're happy with what we have",handled:'no'},{text:'Not the right time',handled:'no'},{text:'Too expensive',handled:'yes'}]},
+  {name:'Tom Bradley',meta:'Apr 8 · 61 min · Closed won',score:91,scores:[95,90,92,85,90,95,88,90],
+   summary:'Excellent across the board. Ownership and COI was the standout. One of the best calls of the month.',
+   coachingTags:['best call','strong COI','flawless pitch'],
+   objections:[{text:'Price drop request',handled:'yes'}]},
+  {name:'Priya Nair',meta:'Apr 7 · 29 min · No show / partial',score:48,scores:[55,45,40,42,50,60,38,45],
+   summary:'Call cut short — prospect was unprepared. Weak rapport and no real pain exploration.',
+   coachingTags:['reschedule','no rapport','prep issue'],
+   objections:[{text:'Not prepared for the call',handled:'no'},{text:'Need more time to decide',handled:'no'}]},
+];
+
+let framework = [
+  {label:'Intro & rapport',avg:82},{label:'Problem awareness',avg:75},
+  {label:'Situation / pain',avg:70},{label:'Ownership & COI',avg:54},
+  {label:'Goal state',avg:73},{label:'Pitch',avg:79},
+  {label:'Price drop',avg:67},{label:'Objection handling',avg:68},
+];
+
+const MO = [
+  {name:'Alex Thompson',meta:'Apr 10 · 48 min · Closed lost',buyingScore:91,breakdownStage:'Objection handling',revenue:0,
+   signals:[{text:'Asked "when could we start?" unprompted',strong:true},{text:'Requested pricing breakdown for 8 seats',strong:true},{text:'Agreed problem was costing the team',strong:false},{text:'Mentioned board review next week',strong:false}],
+   diagnosis:'Prospect raised a "we already renewed HubSpot" objection and rep acknowledged it without reframing. The objection was left unresolved and the call ended without a next step booked.',
+   shouldHave:'Reframe HubSpot as complementary, not competitive. Then drive toward a concrete next step — "let\'s get 30 minutes with you and your CFO this week before your board review."'},
+  {name:'Natalie Ford',meta:'Apr 7 · 41 min · Proposal sent, ghosted',buyingScore:84,breakdownStage:'Price drop',revenue:0,
+   signals:[{text:'Said "this is exactly what we need"',strong:true},{text:'Asked about onboarding timeline',strong:true},{text:'Mentioned a failed previous tool',strong:false}],
+   diagnosis:'No firm next meeting was locked in before sending the proposal. Rep offered the annual discount too early without anchoring value first.',
+   shouldHave:'Lock in a proposal review call before ending the discovery call. Never send a proposal into a void. Anchor value before mentioning the discount.'},
+  {name:'Chris Moody',meta:'Apr 5 · 55 min · Discovery, no follow-up',buyingScore:78,breakdownStage:'Goal state',revenue:0,
+   signals:[{text:'Had a specific revenue target tied to solving this',strong:true},{text:'Asked about team onboarding process',strong:false},{text:'Referenced a competitor they\'d already ruled out',strong:false}],
+   diagnosis:'Goal state was explored but not anchored — the prospect articulated a clear goal but rep moved to pitch before confirming mutual agreement.',
+   shouldHave:'Confirm the goal out loud: "So if we solve this by Q3, that\'s worth X to you — is that right?" Then use that anchor before pitching.'},
+  {name:'Sophie Reeves',meta:'Apr 3 · 37 min · Closed lost',buyingScore:76,breakdownStage:'Ownership & COI',revenue:0,
+   signals:[{text:'Expressed frustration with current process',strong:true},{text:'Team was actively looking for solutions',strong:false},{text:'Asked about contract flexibility',strong:false}],
+   diagnosis:'Cost of inaction was touched on but not fully landed. Prospect expressed frustration but rep pivoted to pitch before it was magnified.',
+   shouldHave:'Spend more time in the ownership phase. Ask "what happens if this isn\'t solved in 3 months?" and let the prospect sit with that answer.'},
+  {name:'Daniel Park',meta:'Mar 29 · 62 min · Proposal sent, declined',buyingScore:72,breakdownStage:'Pitch',revenue:0,
+   signals:[{text:'Had budget pre-approved for this quarter',strong:true},{text:'CEO was supportive',strong:false},{text:'Compared favourably to a tool they\'d demoed',strong:false}],
+   diagnosis:'Pitch arrived before the buying process was fully mapped. Rep assumed CEO support meant a fast close and skipped confirming the internal decision process.',
+   shouldHave:'Always map the buying process: "Who else is involved and what does sign-off look like?" before pitching.'},
+];
+
+const origPipeline = JSON.parse(JSON.stringify(pipeline));
+const origCalls    = JSON.parse(JSON.stringify(calls));
+const origFramework= JSON.parse(JSON.stringify(framework));
+
+// ── Helpers ──────────────────────────────────────────────────────
+const sc = s => s>=80?'score-a':s>=60?'score-b':'score-c';
+const bc = s => s>=80?'#3a7d44':s>=65?'#ba7517':'#a32d2d';
+
+// ── Edit mode ────────────────────────────────────────────────────
+function toggleEdit(){
+  editMode=!editMode;
+  document.getElementById('editToggle').classList.toggle('edit-on',editMode);
+  document.getElementById('editLabel').textContent=editMode?'Editing':'Edit data';
+  document.getElementById('editBanner').classList.toggle('show',editMode);
+  document.getElementById('focusText').contentEditable=editMode?'true':'false';
+  document.getElementById('focusSub').contentEditable=editMode?'true':'false';
+  renderPipeline(); renderCalls(); renderTrends();
+}
+
+function resetAll(){
+  pipeline=JSON.parse(JSON.stringify(origPipeline));
+  calls=JSON.parse(JSON.stringify(origCalls));
+  framework=JSON.parse(JSON.stringify(origFramework));
+  openCallIdx=null;
+  renderPipeline(); renderCalls(); renderTrends();
+}
+
+// ── Tab switching ────────────────────────────────────────────────
+function switchTab(tab,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Date picker ──────────────────────────────────────────────────
+function togglePicker(){ pickerOpen=!pickerOpen; document.getElementById('pickerPanel').classList.toggle('open',pickerOpen); }
+function closePicker(){ pickerOpen=false; document.getElementById('pickerPanel').classList.remove('open'); }
+
+function buildPresets(){
+  document.getElementById('presetGrid').innerHTML=PRESETS.map(p=>
+    `<div class="preset-item${p.key===selectedPreset?' selected':''}" onclick="selectPreset('${p.key}','${p.label}')">${p.label}</div>`
+  ).join('');
+}
+
+function selectPreset(key,label){
+  selectedPreset=key;
+  document.getElementById('dateLabel').textContent=label;
+  buildPresets(); updateRangeLabel(label,key); closePicker();
+}
+
+function applyCustom(){
+  const from=document.getElementById('dateFrom').value;
+  const to=document.getElementById('dateTo').value;
+  if(!from||!to) return;
+  const fmt=s=>new Date(s).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+  const label=fmt(from)+' – '+fmt(to);
+  document.getElementById('dateLabel').textContent=label;
+  selectedPreset=null; buildPresets();
+  document.getElementById('activeRangeLabel').innerHTML=`Showing: <strong>Custom range</strong> &nbsp;·&nbsp; ${label}`;
+  closePicker();
+}
+
+function updateRangeLabel(presetLabel,key){
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  const fmt=d=>d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+  const sw=()=>{const s=new Date(now);s.setDate(now.getDate()-now.getDay()+1);return s;};
+  const ranges={
+    today:[new Date(y,m,now.getDate()),new Date(y,m,now.getDate())],
+    this_month:[new Date(y,m,1),new Date(y,m+1,0)],
+    last_month:[new Date(y,m-1,1),new Date(y,m,0)],
+    this_week:[sw(),new Date(sw().getTime()+6*864e5)],
+    this_year:[new Date(y,0,1),new Date(y,11,31)],
+    last_year:[new Date(y-1,0,1),new Date(y-1,11,31)],
+    all_time:[new Date(2020,0,1),new Date(2099,11,31)],
+  };
+  const el=document.getElementById('activeRangeLabel');
+  if(key==='all_time'){el.innerHTML=`Showing: <strong>all time</strong>`;return;}
+  const r=ranges[key];
+  el.innerHTML=r?`Showing: <strong>${presetLabel}</strong> &nbsp;·&nbsp; ${fmt(r[0])} – ${fmt(r[1])}`:`Showing: <strong>${presetLabel}</strong>`;
+}
+
+// ── Pipeline ─────────────────────────────────────────────────────
+function renderPipeline(){
+  document.getElementById('pipelineTable').innerHTML=pipeline.map((r,ri)=>{
+    if(editMode){
+      const opts=statusOptions.map(s=>`<option value="${s}"${s===r.status?' selected':''}>${s}</option>`).join('');
+      return `<tr>
+        <td><input class="cell-input" value="${r.name}" onchange="pipeline[${ri}].name=this.value" style="width:110px"/></td>
+        <td><select class="status-select" onchange="pipeline[${ri}].status=this.value;pipeline[${ri}].pill=pillMap[this.value];renderPipeline()">${opts}</select></td>
+        <td><input class="cell-input" value="${r.value}" onchange="pipeline[${ri}].value=this.value" style="width:72px"/></td>
+        <td><input class="cell-input" value="${r.next}" onchange="pipeline[${ri}].next=this.value" style="width:110px"/></td>
+      </tr>`;
+    }
+    return `<tr><td>${r.name}</td><td><span class="pill ${r.pill}">${r.status}</span></td><td>${r.value}</td><td>${r.next}</td></tr>`;
+  }).join('');
+}
+
+// ── Call reviews ─────────────────────────────────────────────────
+function renderCalls(){
+  document.getElementById('callList').innerHTML=calls.map((c,ci)=>{
+    const isOpen=openCallIdx===ci;
+    const hasUnhandled=c.objections.some(o=>o.handled==='no');
+    const objSection=editMode?`
+      <div class="obj-box">
+        <div class="obj-label">Objections faced</div>
+        ${c.objections.map((o,oi)=>`
+          <div class="obj-edit-row">
+            <input class="obj-edit-input" value="${o.text}" onchange="calls[${ci}].objections[${oi}].text=this.value" placeholder="Objection"/>
+            <select class="obj-handled-sel" onchange="calls[${ci}].objections[${oi}].handled=this.value;renderCalls()">
+              <option value="yes"${o.handled==='yes'?' selected':''}>Handled</option>
+              <option value="no"${o.handled==='no'?' selected':''}>Not handled</option>
+            </select>
+            <button class="obj-remove" onclick="calls[${ci}].objections.splice(${oi},1);renderCalls()">✕</button>
+          </div>`).join('')}
+        <button class="obj-add" onclick="calls[${ci}].objections.push({text:'',handled:'no'});renderCalls()">+ Add objection</button>
+      </div>`:`
+      <div class="obj-box">
+        <div class="obj-label">Objections faced</div>
+        <div class="obj-tags">${c.objections.map(o=>`<span class="obj-tag">${o.text}<span class="handled ${o.handled}">${o.handled==='yes'?'handled':'not handled'}</span></span>`).join('')}</div>
+      </div>`;
+    const editFields=editMode?`
+      <div class="call-edit-sec">
+        <div class="dl">Edit call details</div>
+        <div class="ce-row"><span class="ce-label">Name</span><input class="ce-input" value="${c.name}" style="flex:1" onchange="calls[${ci}].name=this.value;renderCalls()"/></div>
+        <div class="ce-row"><span class="ce-label">Notes</span><input class="ce-input" value="${c.meta}" style="flex:1" onchange="calls[${ci}].meta=this.value;renderCalls()"/></div>
+        <div class="ce-row"><span class="ce-label">Score</span><input class="ce-input" type="number" min="0" max="100" value="${c.score}" style="width:64px" oninput="calls[${ci}].score=Math.min(100,Math.max(0,parseInt(this.value)||0));renderCalls()"/><span style="font-size:12px;color:var(--text2)">/ 100</span></div>
+      </div>`:'';
+    return `
+      <div class="call-row">
+        <div class="call-header${isOpen?' open-hdr':''}" onclick="openCallIdx=openCallIdx===${ci}?null:${ci};renderCalls()">
+          <div><div class="call-name">${c.name}</div><div class="call-meta">${c.meta}</div></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${hasUnhandled?'<span class="unhandled-pill">unhandled objections</span>':''}
+            <div class="call-score ${sc(c.score)}">${c.score}</div>
+          </div>
+        </div>
+        <div class="call-detail${isOpen?' open':''}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+            <div><div style="font-size:15px;font-weight:500">${c.name}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${c.meta}</div></div>
+            <div style="text-align:right"><div class="call-score ${sc(c.score)}" style="font-size:32px">${c.score}</div><div style="font-size:11px;color:var(--text2)">overall score</div></div>
+          </div>
+          <div class="dl">Objections faced</div>${objSection}
+          <div class="dl">Framework scores</div>
+          ${FRAMEWORK_LABELS.map((lbl,i)=>{const s=c.scores[i];return`<div class="bar-wrap"><div class="bar-row"><span>${lbl}</span><span>${s}/100</span></div><div class="bar-track"><div class="bar-fill" style="width:${s}%;background:${bc(s)}"></div></div></div>`;}).join('')}
+          <div class="dl">Coaching tags</div>
+          <div style="margin-bottom:12px">${c.coachingTags.map(t=>`<span class="tag ${t.includes('strong')||t.includes('best')||t.includes('flawless')?'tag-good':'tag-coaching'}">${t}</span>`).join('')}</div>
+          <div class="dl">Summary</div><p class="summary-text">${c.summary}</p>
+          ${editFields}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Trends ───────────────────────────────────────────────────────
+function renderTrends(){
+  document.getElementById('trendBars').innerHTML=framework.map((item,fi)=>{
+    const col=bc(item.avg);
+    const stepper=editMode
+      ?`<div class="score-stepper on"><button onclick="adjustFw(${fi},-1)">−</button><input type="number" min="0" max="100" value="${item.avg}" style="width:44px" oninput="setFw(${fi},this.value)"/><button onclick="adjustFw(${fi},1)">+</button></div>`
+      :`<span style="font-size:13px;font-weight:500;color:var(--text2)">${item.avg}</span>`;
+    return `<div class="bar-wrap"><div class="bar-row"><span style="font-size:12px">${item.label}</span><div style="display:flex;align-items:center;gap:4px">${stepper}</div></div><div class="bar-track"><div class="bar-fill" id="bfill-${fi}" style="width:${item.avg}%;background:${col}"></div></div></div>`;
+  }).join('');
+}
+
+function adjustFw(fi,delta){
+  framework[fi].avg=Math.min(100,Math.max(0,framework[fi].avg+delta));
+  const f=document.getElementById('bfill-'+fi);
+  if(f){f.style.width=framework[fi].avg+'%';f.style.background=bc(framework[fi].avg);}
+  const inputs=document.querySelectorAll('#trendBars .score-stepper input');
+  if(inputs[fi]) inputs[fi].value=framework[fi].avg;
+}
+function setFw(fi,val){
+  framework[fi].avg=Math.min(100,Math.max(0,parseInt(val)||0));
+  const f=document.getElementById('bfill-'+fi);
+  if(f){f.style.width=framework[fi].avg+'%';f.style.background=bc(framework[fi].avg);}
+}
+
+// ── Missed opportunities ─────────────────────────────────────────
+function calcLeakage(){ return MO.reduce((s,m)=>s+(m.revenue||0),0); }
+
+function updateLeakage(){
+  const total=calcLeakage();
+  const entered=MO.filter(m=>m.revenue>0).length;
+  document.getElementById('totalLeakage').textContent='$'+total.toLocaleString();
+  document.getElementById('leakageSub').textContent=entered>0
+    ?`across ${entered} missed opportunit${entered===1?'y':'ies'} with revenue entered`
+    :'enter deal values below to track leakage';
+}
+
+function renderMO(){
+  document.getElementById('moList').innerHTML=MO.map((m,i)=>{
+    const isOpen=openMoIdx===i;
+    const revDisplay=m.revenue>0
+      ?`<span class="rev-badge">-$${m.revenue.toLocaleString()}</span>`
+      :`<span class="rev-badge empty">add value</span>`;
+    return `
+      <div class="mo-row">
+        <div class="mo-header" onclick="openMoIdx=openMoIdx===${i}?null:${i};renderMO()">
+          <div><div class="mo-name">${m.name}</div><div class="mo-meta">${m.meta}</div></div>
+          <div class="mo-right">
+            <span class="signal-pill${m.buyingScore>=85?' high':''}">signals ${m.buyingScore}/100</span>
+            <span class="breakdown-stage-pill">${m.breakdownStage}</span>
+            ${revDisplay}
+          </div>
+        </div>
+        <div class="mo-detail${isOpen?' open':''}">
+          <div class="dl">Buying signal score</div>
+          <div class="bs-wrap" style="margin-bottom:14px"><div class="bs-track"><div class="bs-fill" style="width:${m.buyingScore}%"></div></div><div class="bs-num">${m.buyingScore}/100</div></div>
+          <div class="dl">Buying signals identified by Claude</div>
+          <div class="signal-tags" style="margin-bottom:14px">${m.signals.map(s=>`<span class="signal-tag${s.strong?' strong':''}">${s.text}</span>`).join('')}</div>
+          <div class="dl">Where it broke down</div>
+          <div style="margin-bottom:14px"><span class="stage-badge">${m.breakdownStage}</span></div>
+          <div class="dl">Claude's diagnosis</div>
+          <div class="diagnosis-box" style="margin-bottom:14px"><div class="diagnosis-text">${m.diagnosis}</div></div>
+          <div class="dl">What should have happened</div>
+          <div class="should-have-box" style="margin-bottom:14px"><div class="should-have-text">${m.shouldHave}</div></div>
+          <div class="dl">Revenue lost</div>
+          <div class="rev-section" onclick="event.stopPropagation()">
+            <div style="font-size:12px;color:var(--text2)">Enter the deal value to track leakage</div>
+            <div class="rev-input-row">
+              <span class="rev-prefix">$</span>
+              <input class="rev-input" type="number" placeholder="0" value="${m.revenue||''}" id="rev-${i}"
+                onclick="event.stopPropagation()"
+                onkeydown="if(event.key==='Enter'){event.stopPropagation();saveRev(${i});}"/>
+              <button class="rev-save" onclick="event.stopPropagation();saveRev(${i})">Save</button>
+              <span class="rev-saved" id="rev-saved-${i}">Saved</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function saveRev(i){
+  const input=document.getElementById('rev-'+i);
+  const val=Math.max(0,parseInt(input.value)||0);
+  MO[i].revenue=val;
+  updateLeakage();
+  openMoIdx=i;
+  renderMO();
+  const saved=document.getElementById('rev-saved-'+i);
+  if(saved){saved.classList.add('show');setTimeout(()=>saved.classList.remove('show'),2000);}
+}
+
+// ── Charts ───────────────────────────────────────────────────────
+function initCharts(){
+  const weeks=['W9','W10','W11','W12','W13','W14','W15','W16'];
+  const isDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
+  const tickColor=isDark?'#6b6a65':'#9b9a95';
+
+  new Chart(document.getElementById('revenueChart'),{
+    type:'line',
+    data:{labels:weeks,datasets:[
+      {label:'Revenue',data:[38000,42000,45000,48000,51000,54000,58000,62400],borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,0.08)',tension:0.4,fill:true,borderWidth:2,pointRadius:3},
+      {label:'Cash',data:[22000,25000,27000,29000,31000,34000,36000,38900],borderColor:'#3a7d44',backgroundColor:'rgba(58,125,68,0.08)',tension:0.4,fill:true,borderWidth:2,pointRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+      y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',font:{size:11},color:tickColor},grid:{color:gridColor}},
+      x:{ticks:{font:{size:11},color:tickColor},grid:{display:false}}
+    }}
+  });
+
+  new Chart(document.getElementById('closeChart'),{
+    type:'line',
+    data:{labels:weeks,datasets:[
+      {label:'Close rate',data:[18,19,20,21,22,24,25,28],borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,0.1)',tension:0.4,fill:true,borderWidth:2,pointRadius:3},
+      {label:'Qualified close',data:[24,25,27,28,30,33,35,41],borderColor:'#3a7d44',backgroundColor:'rgba(58,125,68,0.08)',tension:0.4,fill:true,borderWidth:2,borderDash:[4,3],pointRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+      y:{ticks:{callback:v=>v+'%',font:{size:11},color:tickColor},grid:{color:gridColor}},
+      x:{ticks:{font:{size:11},color:tickColor},grid:{display:false}}
+    }}
+  });
+}
+
+// ── Live data fetching ────────────────────────────────────────────
+async function fetchLiveData(from, to) {
+  try {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to)   params.set('to', to);
+    const res  = await fetch(`/api/calls?${params}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.calls?.length) return;
+
+    // Update metric cards with real data
+    const m = data.metrics;
+    const metricEls = document.querySelectorAll('.metric .mvalue');
+    if (metricEls[0]) metricEls[0].textContent = m.closeRate + '%';
+    if (metricEls[2]) metricEls[2].textContent = m.cancelled;
+    if (metricEls[3]) metricEls[3].textContent = m.noShows;
+
+    // Update calls list with real data
+    calls = data.calls.slice(0,20).map(c => ({
+      name:    c.prospect_name,
+      meta:    `${c.call_date} · ${c.duration_minutes} min · ${fmtOutcome(c.outcome)}`,
+      score:   c.overall_score,
+      scores:  [],
+      summary: '',
+      coachingTags: [],
+      objections:   [],
+    }));
+
+    // Update missed opportunities with real data
+    const missedCalls = data.calls.filter(c => c.is_missed_opportunity);
+    if (missedCalls.length > 0) {
+      document.getElementById('moCount') && (document.getElementById('moCount').textContent = missedCalls.length);
+    }
+
+    renderCalls();
+    renderMO();
+
+    console.log(`[dashboard] Loaded ${data.calls.length} live calls`);
+  } catch (err) {
+    console.log('[dashboard] Using sample data —', err.message);
+  }
+}
+
+async function loadCallDetail(callId) {
+  try {
+    const res  = await fetch(`/api/calls?id=${callId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+function fmtOutcome(o) {
+  const map = { closed_won:'Closed won', closed_lost:'Closed lost', proposal_sent:'Proposal sent', discovery:'Discovery', no_show:'No show', cancelled:'Cancelled' };
+  return map[o] || o;
+}
+
+// ── Boot ─────────────────────────────────────────────────────────
+buildPresets();
+updateRangeLabel('This month','this_month');
+renderPipeline();
+renderCalls();
+renderTrends();
+renderMO();
+updateLeakage();
+window.addEventListener('load', () => {
+  initCharts();
+  fetchLiveData(); // pull real data if available, fall back to samples
+});
+</script>
+</body>
+</html>
